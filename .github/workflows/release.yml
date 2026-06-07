@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package ZIP
+        run: |
+          cd $GITHUB_WORKSPACE/..
+          zip -r MiraiCore.zip MiraiCore/ \
+            -x "MiraiCore/tmp_update/*" \
+            -x "MiraiCore/.git/*" \
+            -x "MiraiCore/.github/*"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ../MiraiCore.zip
