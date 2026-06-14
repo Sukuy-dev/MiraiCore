@@ -38,6 +38,9 @@ class MiraiCore_VIP_Action extends Typecho_Widget implements Widget_Interface_Do
                             'vip_level' => $vipLevel,
                             'vip_exp_date' => $vipExpDate
                         ])->where('uid = ?', $uid));
+                        if (function_exists('Mirai_vipClearCache')) {
+                            Mirai_vipClearCache($uid);
+                        }
                     }
                 }
             } catch (Exception $e) {
