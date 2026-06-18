@@ -24,12 +24,12 @@ require_once __DIR__ . '/Database/Service.php';
  *
  * @package MiraiCore
  * @author 苏酷伊Sukuy
- * @version 1.1.2
+ * @version 1.1.3
  * @link https://www.sukuy.com
  */
 class MiraiCore_Plugin implements Typecho_Plugin_Interface
 {
-    const VERSION = '1.1.2';
+    const VERSION = '1.1.3';
     public static function activate()
     {
         Typecho_Plugin::factory('Widget_Upload')->uploadHandle = array('MiraiCore_Plugin', 'uploadHandle');
