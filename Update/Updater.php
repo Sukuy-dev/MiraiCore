@@ -5,7 +5,9 @@ class MiraiCore_Updater
 {
     const GITHUB_API = 'https://api.github.com/repos/Sukuy-dev/MiraiCore/releases/latest';
 
-    private static $MIRRORS = array();
+    private static $MIRRORS = array(
+        'https://gh-proxy.com/',
+    );
 
     private $pluginDir;
     private $tmpDir;
