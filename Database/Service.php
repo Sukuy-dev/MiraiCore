@@ -24,19 +24,19 @@ class MiraiCore_Database_Service
             }
 
             $options = Typecho_Widget::widget('Widget_Options');
-            $lastCheckTime = $options->get('mirai_last_db_check_time');
+            $lastCheckTime = (int)($options->mirai_last_db_check_time ?? 0);
             $currentTime = time();
             $checkInterval = 24 * 60 * 60;
 
             if (!$lastCheckTime || ($currentTime - $lastCheckTime > $checkInterval)) {
                 $lockKey = 'mirai_db_check_lock';
-                $lockTime = $options->get($lockKey);
+                $lockTime = (int)($options->{$lockKey} ?? 0);
 
                 if ($lockTime && ($currentTime - $lockTime <= 300)) {
                     return;
                 }
 
-                $options->set($lockKey, $currentTime);
+                \Utils\Helper::setOption($lockKey, $currentTime);
 
                 try {
                     MiraiCore_Plugin::loadThemeFile('migration.php', 'common/mysql');
@@ -45,11 +45,11 @@ class MiraiCore_Database_Service
                         Mirai_checkDatabase();
                     }
 
-                    $options->set('mirai_last_db_check_time', $currentTime);
+                    \Utils\Helper::setOption('mirai_last_db_check_time', $currentTime);
                 } catch (Exception $e) {
                     error_log('Mirai database check failed: ' . $e->getMessage());
                 } finally {
-                    $options->set($lockKey, 0);
+                    \Utils\Helper::setOption($lockKey, 0);
                 }
             }
         } catch (Exception $e) {

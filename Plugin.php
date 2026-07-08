@@ -18,6 +18,10 @@ require_once __DIR__ . '/Fields/Handler.php';
 require_once __DIR__ . '/Update/Updater.php';
 require_once __DIR__ . '/Update/Action.php';
 require_once __DIR__ . '/Database/Service.php';
+require_once __DIR__ . '/InviteCode/Service.php';
+require_once __DIR__ . '/InviteCode/Action.php';
+require_once __DIR__ . '/OpenList/Service.php';
+require_once __DIR__ . '/OpenList/Action.php';
 
 /**
  * Mirai 未来主题核心组件
@@ -57,9 +61,11 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/Withdrawals/manage-withdrawals.php', '提现管理', '管理提现申请', 'administrator');
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/Points/manage-points.php', '积分管理', '管理积分记录与调整', 'administrator');
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/Referral/manage-referral.php', '返佣管理', '管理推广返佣', 'administrator');
+        Helper::addPanel($miraiMenuIndex, 'MiraiCore/InviteCode/manage-invite-codes.php', '邀请码管理', '管理注册邀请码', 'administrator');
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/Level/manage-level.php', '等级管理', '管理用户等级', 'administrator');
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/Links/manage-links.php', '友情链接', '管理友情链接', 'administrator');
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/Links/manage-categories.php', '链接分类', '管理链接分类', 'administrator');
+        Helper::addPanel($miraiMenuIndex, 'MiraiCore/OpenList/manage-openlist.php', 'OpenList资源', '管理OpenList资源配置', 'administrator');
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/Sitemap/manage-sitemap.php', '网站地图', '管理网站地图', 'administrator');
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/Crawler/manage-crawler.php', '爬虫记录', '查看爬虫访问记录', 'administrator');
         Helper::addAction('links-submit', 'MiraiCore_Links_Action');
@@ -71,6 +77,8 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
         Helper::addAction('mirai-links', 'MiraiCore_Links_Batch_Action');
         Helper::addAction('mirai-wechat', 'MiraiCore_Wechat_Action');
         Helper::addAction('mirai-update', 'MiraiCore_Update_Action');
+        Helper::addAction('mirai-invite-codes', 'MiraiCore_InviteCode_Action');
+        Helper::addAction('mirai-openlist', 'MiraiCore_OpenList_Action');
         
         self::loadThemeFile('migration.php', 'common/mysql');
         if (function_exists('Mirai_checkDatabase')) {
@@ -103,6 +111,8 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
         Helper::removeAction('mirai-links');
         Helper::removeAction('mirai-wechat');
         Helper::removeAction('mirai-update');
+        Helper::removeAction('mirai-invite-codes');
+        Helper::removeAction('mirai-openlist');
     }
     
     public static function config(Typecho_Widget_Helper_Form $form){}
@@ -165,11 +175,15 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
     public static function onArchiveFooter($archive)
     {
         MiraiCore_Auth::onArchiveFooter($archive);
+        MiraiCore_OpenList_Action::renderAssets($archive);
     }
 
     public static function handleAdminBegin()
     {
         MiraiCore_Auth::interceptAdminAccess();
+        if (self::isActionRequest()) {
+            return;
+        }
         MiraiCore_Database_Service::checkOnAdminLogin();
         self::renderAdminScript();
         self::renderWechatAssets();
@@ -180,6 +194,7 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
         require_once __DIR__ . '/VIP/Action.php';
         MiraiCore_VIP_Action::renderFooter();
         MiraiCore_Balance_Action::renderFooter();
+        MiraiCore_OpenList_Action::renderAssets();
     }
 
     public static function renderHeader($header)
@@ -190,6 +205,10 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
 
     public static function renderAdminScript()
     {
+        if (self::isActionRequest()) {
+            return;
+        }
+
         $adminPath = '/' . trim((string)__TYPECHO_ADMIN_DIR__, '/');
         if (PHP_SAPI !== 'cli' && isset($_SERVER['SCRIPT_NAME']) && strpos((string)$_SERVER['SCRIPT_NAME'], $adminPath . '/') !== false) {
             $options = Typecho_Widget::widget('Widget_Options');
@@ -236,7 +255,22 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
 
     public static function renderWechatAssets()
     {
+        if (self::isActionRequest()) {
+            return;
+        }
+
         MiraiCore_Wechat_Action::renderAssets();
+    }
+
+    private static function isActionRequest()
+    {
+        $uri = isset($_SERVER['REQUEST_URI']) ? (string)$_SERVER['REQUEST_URI'] : '';
+        $path = parse_url($uri, PHP_URL_PATH);
+        if (!is_string($path) || $path === '') {
+            return false;
+        }
+
+        return preg_match('#/(index\.php/)?action/[^/]+$#', '/' . trim($path, '/')) === 1;
     }
 
     public static function loadThemeFile($file, $subdir = '')
