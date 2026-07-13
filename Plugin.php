@@ -28,12 +28,12 @@ require_once __DIR__ . '/OpenList/Action.php';
  *
  * @package MiraiCore
  * @author 苏酷伊Sukuy
- * @version 1.1.4
+ * @version 1.1.5
  * @link https://www.sukuy.com
  */
 class MiraiCore_Plugin implements Typecho_Plugin_Interface
 {
-    const VERSION = '1.1.4';
+    const VERSION = '1.1.5';
     public static function activate()
     {
         Typecho_Plugin::factory('Widget_Upload')->uploadHandle = array('MiraiCore_Plugin', 'uploadHandle');
@@ -238,7 +238,7 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
                 'return \'<div class="mirai-config-header"><div class="mirai-header-right">\' +' .
                 '\'<span class="mirai-badge is-gray"><i class="ri-information-line"></i> 主题 v' . $themeVersion . '</span>\' +' .
                 '\'<span class="mirai-badge is-gray"><i class="ri-plug-line"></i> 插件 v' . $pluginVersion . '</span>\' +' .
-                '\'<a href="javascript:;" class="mirai-badge is-blue js-mirai-check-update"><i class="ri-refresh-line"></i> 检查更新</a>\' +' .
+                '\'<a href="javascript:;" class="mirai-badge is-blue js-mirai-check-update"><i class="ri-refresh-line"></i> 检查插件更新</a>\' +' .
                 '\'<a href="javascript:;" class="mirai-badge is-green js-mirai-repair-db"><i class="ri-database-2-line"></i> 修复数据表</a>\' +' .
                 '\'<a href="' . $groupUrl . '" target="_blank" class="mirai-badge is-purple"><i class="ri-qq-line"></i> 加入交流群</a>\' +' .
                 '\'</div></div><p class="mirai-config-tip"></p>\';' .
