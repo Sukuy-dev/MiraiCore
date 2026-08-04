@@ -195,70 +195,64 @@ $pendingCount = intval($db->fetchObject(
                 <?php endif; ?>
 
                 <?php if ($action === 'list'): ?>
-                <div class="typecho-list-operate clearfix">
-                    <form method="get" action="<?php echo $options->adminUrl('extending.php', true); ?>">
-                        <input type="hidden" name="panel" value="<?php echo htmlspecialchars($panelName); ?>">
-                        <div class="operate">
-                            <label><i class="sr-only">全选</i><input type="checkbox" class="typecho-table-select-all"/></label>
-                            <div class="btn-group btn-drop">
-                                <button class="btn dropdown-toggle btn-s" type="button"><i class="sr-only">操作</i>选中项 <i class="i-caret-down"></i></button>
-                                <ul class="dropdown-menu">
-                                    <li><a lang="<?php _e('你确认要删除选中的链接吗？'); ?>" href="<?php $security->index('/action/mirai-links?do=delete'); ?>"><?php _e('删除'); ?></a></li>
-                                    <li><a lang="<?php _e('你确认要显示选中的链接吗？'); ?>" href="<?php $security->index('/action/mirai-links?do=show'); ?>"><?php _e('显示'); ?></a></li>
-                                    <li><a lang="<?php _e('你确认要隐藏选中的链接吗？'); ?>" href="<?php $security->index('/action/mirai-links?do=hide'); ?>"><?php _e('隐藏'); ?></a></li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="search" role="search">
-                            <select name="category">
-                                <option value="0">所有分类</option>
-                                <?php foreach ($categories as $cat): ?>
-                                <option value="<?php echo $cat['mid']; ?>" <?php echo $filterCategory == $cat['mid'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($cat['name']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                            <select name="visible">
-                                <option value="">所有状态</option>
-                                <option value="Y" <?php echo $filterVisible === 'Y' ? 'selected' : ''; ?>>显示</option>
-                                <option value="N" <?php echo $filterVisible === 'N' ? 'selected' : ''; ?>>待审</option>
-                            </select>
-                            <input type="text" name="keyword" value="<?php echo htmlspecialchars($keyword); ?>" placeholder="搜索链接">
-                            <button type="submit" class="btn btn-s">筛选</button>
-                        </div>
-                    </form>
-                </div>
-                <div style="margin: 10px 0;">
-                    <a href="<?php echo $panelUrl . '&action=edit'; ?>" class="btn btn-primary btn-s"><i class="i-plus"></i> 添加链接</a>
-                    <a href="<?php echo $panelUrl . '&visible=N'; ?>" class="btn btn-s" style="margin-left:8px;">待审链接<?php echo $pendingCount > 0 ? ' (' . $pendingCount . ')' : ''; ?></a>
+                <div class="typecho-list-operate">
+                    <ul class="typecho-option-tabs">
+                        <li<?php echo $filterVisible === '' ? ' class="current"' : ''; ?>><a href="<?php echo $panelUrl; ?>">全部</a></li>
+                        <li<?php echo $filterVisible === 'Y' ? ' class="current"' : ''; ?>><a href="<?php echo $panelUrl . '&visible=Y'; ?>">显示</a></li>
+                        <li<?php echo $filterVisible === 'N' ? ' class="current"' : ''; ?>><a href="<?php echo $panelUrl . '&visible=N'; ?>">待审核<?php if ($pendingCount > 0): ?> <span class="balloon"><?php echo $pendingCount; ?></span><?php endif; ?></a></li>
+                    </ul>
                 </div>
 
+                <form method="get" action="<?php echo $options->adminUrl('extending.php', true); ?>" class="typecho-list-operate">
+                    <input type="hidden" name="panel" value="<?php echo htmlspecialchars($panelName); ?>">
+                    <?php if ($filterVisible !== ''): ?><input type="hidden" name="visible" value="<?php echo htmlspecialchars($filterVisible); ?>"><?php endif; ?>
+                    <div class="operate">
+                        <label><i class="sr-only">全选</i><input type="checkbox" class="typecho-table-select-all"/></label>
+                        <div class="btn-group btn-drop">
+                            <button class="btn dropdown-toggle btn-s" type="button"><i class="sr-only">操作</i>选中项 <i class="i-caret-down"></i></button>
+                            <ul class="dropdown-menu">
+                                <li><a lang="<?php _e('你确认要删除选中的链接吗？'); ?>" href="<?php $security->index('/action/mirai-links?do=delete'); ?>"><?php _e('删除'); ?></a></li>
+                                <li><a lang="<?php _e('你确认要显示选中的链接吗？'); ?>" href="<?php $security->index('/action/mirai-links?do=show'); ?>"><?php _e('显示'); ?></a></li>
+                                <li><a lang="<?php _e('你确认要隐藏选中的链接吗？'); ?>" href="<?php $security->index('/action/mirai-links?do=hide'); ?>"><?php _e('隐藏'); ?></a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="search" role="search">
+                        <?php if ($filterCategory > 0 || $keyword !== ''): ?><a href="<?php echo $panelUrl . ($filterVisible !== '' ? '&visible=' . rawurlencode($filterVisible) : ''); ?>">&laquo; 取消筛选</a><?php endif; ?>
+                        <select name="category">
+                            <option value="0">所有分类</option>
+                            <?php foreach ($categories as $cat): ?>
+                            <option value="<?php echo (int)$cat['mid']; ?>" <?php echo $filterCategory == $cat['mid'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($cat['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <input type="text" class="text-s" name="keyword" value="<?php echo htmlspecialchars($keyword); ?>" placeholder="请输入关键字">
+                        <button type="submit" class="btn btn-s">筛选</button>
+                    </div>
+                </form>
+
                 <form method="post" name="manage_links" class="operate-form">
-                    <div class="typecho-table-wrap">
-                        <table class="typecho-list-table">
-                            <colgroup>
-                                <col width="3%" class="kit-hidden-mb">
-                                <col width="50">
-                                <col width="60">
-                                <col width="220">
-                                <col width="260">
-                                <col width="100">
-                                <col width="60">
-                                <col>
-                            </colgroup>
+                    <table class="typecho-list-table">
+                        <colgroup>
+                            <col width="3%" class="kit-hidden-mb">
+                            <col width="7%" class="kit-hidden-mb">
+                            <col width="28%">
+                            <col width="34%">
+                            <col width="16%" class="kit-hidden-mb">
+                            <col width="12%">
+                        </colgroup>
                             <thead>
                                 <tr>
                                     <th class="kit-hidden-mb"></th>
-                                    <th>ID</th>
-                                    <th>排序</th>
-                                    <th>网站名称</th>
-                                    <th>网站地址</th>
-                                    <th>分类</th>
+                                    <th class="kit-hidden-mb">排序</th>
+                                    <th>名称</th>
+                                    <th>地址</th>
+                                    <th class="kit-hidden-mb">分类</th>
                                     <th>状态</th>
-                                    <th>操作</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php if (empty($links)): ?>
-                                <tr><td colspan="8"><h6 class="typecho-list-table-title">没有任何链接</h6></td></tr>
+                                <tr><td colspan="6" class="none">没有任何链接</td></tr>
                                 <?php else: ?>
                                 <?php foreach ($links as $link): ?>
                                 <?php
@@ -268,95 +262,80 @@ $pendingCount = intval($db->fetchObject(
                                 ?>
                                 <tr>
                                     <td class="kit-hidden-mb"><input type="checkbox" value="<?php echo intval($link['lid']); ?>" name="lid[]"/></td>
-                                    <td><?php echo intval($link['lid']); ?></td>
-                                    <td><?php echo intval($link['sort']); ?></td>
+                                    <td class="kit-hidden-mb"><?php echo intval($link['sort']); ?></td>
                                     <td>
-                                        <?php if (!empty($link['image'])): ?>
-                                        <img src="<?php echo htmlspecialchars($link['image']); ?>" alt="" style="width:32px;height:32px;border-radius:50%;margin-right:8px;vertical-align:middle;">
-                                        <?php endif; ?>
-                                        <?php echo htmlspecialchars($link['name']); ?>
-                                        <?php if (!empty($link['description'])): ?>
-                                        <br><small style="color:#999;"><?php echo htmlspecialchars($link['description']); ?></small>
-                                        <?php endif; ?>
+                                        <a href="<?php echo $panelUrl . '&action=edit&lid=' . (int)$link['lid']; ?>"><strong><?php echo htmlspecialchars($link['name']); ?></strong></a>
+                                        <?php if (!empty($link['description'])): ?><div class="mirai-link-description"><?php echo htmlspecialchars($link['description']); ?></div><?php endif; ?>
+                                        <div class="hidden-by-mouse">
+                                            <a class="operate-edit" href="<?php echo $panelUrl . '&action=edit&lid=' . (int)$link['lid']; ?>">编辑</a>
+                                            <?php if ($link['visible'] !== 'Y'): ?><a href="<?php echo $approveUrl; ?>">通过</a><?php endif; ?>
+                                            <a href="<?php echo $toggleUrl; ?>"><?php echo $link['visible'] === 'Y' ? '隐藏' : '显示'; ?></a>
+                                            <a href="<?php echo $panelUrl . '&action=copy&lid=' . (int)$link['lid']; ?>">复制</a>
+                                            <a class="operate-delete" lang="确定要删除此链接吗？" href="<?php echo $deleteUrl; ?>">删除</a>
+                                        </div>
                                     </td>
                                     <td><a href="<?php echo htmlspecialchars($link['url']); ?>" target="_blank" rel="noopener noreferrer"><?php echo htmlspecialchars($link['url']); ?></a></td>
-                                    <td><?php echo isset($categoryMap[$link['category']]) ? htmlspecialchars($categoryMap[$link['category']]) : '未分类'; ?></td>
-                                    <td><?php echo $link['visible'] === 'Y' ? '显示' : '待审'; ?></td>
-                                    <td>
-                                        <a href="<?php echo $panelUrl . '&action=edit&lid=' . $link['lid']; ?>" class="btn btn-s">编辑</a>
-                                        <?php if ($link['visible'] !== 'Y'): ?>
-                                        <a href="<?php echo $approveUrl; ?>" class="btn btn-s">通过</a>
-                                        <?php endif; ?>
-                                        <a href="<?php echo $toggleUrl; ?>" class="btn btn-s"><?php echo $link['visible'] === 'Y' ? '隐藏' : '显示'; ?></a>
-                                        <a href="<?php echo $panelUrl . '&action=copy&lid=' . $link['lid']; ?>" class="btn btn-s">复制</a>
-                                        <a href="<?php echo $deleteUrl; ?>" class="btn btn-s btn-warn" onclick="return confirm('确定要删除此链接吗？');">删除</a>
-                                    </td>
+                                    <td class="kit-hidden-mb"><?php echo isset($categoryMap[$link['category']]) ? htmlspecialchars($categoryMap[$link['category']]) : '未分类'; ?></td>
+                                    <td><?php echo $link['visible'] === 'Y' ? '显示' : '待审核'; ?></td>
                                 </tr>
                                 <?php endforeach; ?>
                                 <?php endif; ?>
                             </tbody>
                         </table>
-                    </div>
                 </form>
 
                 <?php if ($totalPages > 1): ?>
-                <div class="typecho-pager">
-                <div class="typecho-pager-content">
-                    <ul>
-                        <?php
-                        $pageNav = new \Typecho\Widget\Helper\PageNavigator\Box($total, $page, $pageSize, \Typecho\Request::getInstance()->makeUriByRequest('page={page}'));
-                        $pageNav->render('&laquo;', '&raquo;');
-                        ?>
-                    </ul>
-                </div>
-                </div>
+                <ul class="typecho-pager">
+                    <?php
+                    $pageNav = new \Typecho\Widget\Helper\PageNavigator\Box($total, $page, $pageSize, \Typecho\Request::getInstance()->makeUriByRequest('page={page}'));
+                    $pageNav->render('&laquo;', '&raquo;');
+                    ?>
+                </ul>
                 <?php endif; ?>
 
                 <?php else: ?>
                 <?php $formAction = $security->getTokenUrl($panelUrl . ($lid > 0 ? '&lid=' . $lid : '')); ?>
                 <form method="post" action="<?php echo $formAction; ?>">
-                    <div class="typecho-post-option">
+                    <ul class="typecho-option">
+                    <li>
                         <label class="typecho-label">网站名称</label>
-                        <p><input type="text" name="name" value="<?php echo $currentLink ? htmlspecialchars($currentLink['name']) : ''; ?>" class="text-s w-100" required></p>
-                    </div>
-                    <div class="typecho-post-option">
+                        <input type="text" name="name" value="<?php echo $currentLink ? htmlspecialchars($currentLink['name']) : ''; ?>" class="text w-100" required>
+                    </li>
+                    <li>
                         <label class="typecho-label">网站地址</label>
-                        <p><input type="url" name="url" value="<?php echo $currentLink ? htmlspecialchars($currentLink['url']) : ''; ?>" class="text-s w-100" required></p>
-                    </div>
-                    <div class="typecho-post-option">
+                        <input type="url" name="url" value="<?php echo $currentLink ? htmlspecialchars($currentLink['url']) : ''; ?>" class="text w-100" required>
+                    </li>
+                    <li>
                         <label class="typecho-label">网站 LOGO</label>
-                        <p><input type="url" name="image" value="<?php echo $currentLink ? htmlspecialchars($currentLink['image']) : ''; ?>" class="text-s w-100"></p>
-                    </div>
-                    <div class="typecho-post-option">
+                        <input type="url" name="image" value="<?php echo $currentLink ? htmlspecialchars($currentLink['image']) : ''; ?>" class="text w-100">
+                    </li>
+                    <li>
                         <label class="typecho-label">网站简介</label>
-                        <p><textarea name="description" rows="3" class="text-s w-100"><?php echo $currentLink ? htmlspecialchars($currentLink['description']) : ''; ?></textarea></p>
-                    </div>
-                    <div class="typecho-post-option">
+                        <textarea name="description" rows="3"><?php echo $currentLink ? htmlspecialchars($currentLink['description']) : ''; ?></textarea>
+                    </li>
+                    <li>
                         <label class="typecho-label">分类</label>
-                        <p>
-                            <select name="category">
-                                <option value="0">未分类</option>
-                                <?php foreach ($categories as $cat): ?>
-                                <option value="<?php echo $cat['mid']; ?>" <?php echo ($currentLink && intval($currentLink['category']) === intval($cat['mid'])) ? 'selected' : ''; ?>><?php echo htmlspecialchars($cat['name']); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </p>
-                    </div>
-                    <div class="typecho-post-option">
+                        <select name="category">
+                            <option value="0">未分类</option>
+                            <?php foreach ($categories as $cat): ?>
+                            <option value="<?php echo $cat['mid']; ?>" <?php echo ($currentLink && intval($currentLink['category']) === intval($cat['mid'])) ? 'selected' : ''; ?>><?php echo htmlspecialchars($cat['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </li>
+                    <li>
                         <label class="typecho-label">排序权重</label>
-                        <p><input type="number" name="sort" value="<?php echo $currentLink ? intval($currentLink['sort']) : 0; ?>" class="text-s" style="width:100px;"></p>
-                    </div>
-                    <div class="typecho-post-option">
+                        <input type="number" name="sort" value="<?php echo $currentLink ? intval($currentLink['sort']) : 0; ?>" class="num">
+                    </li>
+                    <li>
                         <label class="typecho-label">显示状态</label>
-                        <p>
-                            <label><input type="radio" name="visible" value="Y" <?php echo (!$currentLink || $currentLink['visible'] === 'Y') ? 'checked' : ''; ?>> 显示</label>
-                            <label style="margin-left:20px;"><input type="radio" name="visible" value="N" <?php echo ($currentLink && $currentLink['visible'] === 'N') ? 'checked' : ''; ?>> 隐藏</label>
-                        </p>
-                    </div>
-                    <p class="submit">
-                        <button type="submit" class="btn btn-primary"><?php echo $lid > 0 ? '保存修改' : '添加链接'; ?></button>
+                        <span><input type="radio" id="visible-y" name="visible" value="Y" <?php echo (!$currentLink || $currentLink['visible'] === 'Y') ? 'checked' : ''; ?>><label for="visible-y">显示</label></span>
+                        <span><input type="radio" id="visible-n" name="visible" value="N" <?php echo ($currentLink && $currentLink['visible'] === 'N') ? 'checked' : ''; ?>><label for="visible-n">隐藏</label></span>
+                    </li>
+                    </ul>
+                    <ul class="typecho-option typecho-option-submit"><li>
+                        <button type="submit" class="btn primary"><?php echo $lid > 0 ? '保存修改' : '添加链接'; ?></button>
                         <a href="<?php echo $panelUrl; ?>" class="btn">返回列表</a>
-                    </p>
+                    </li></ul>
                 </form>
                 <?php endif; ?>
             </div>

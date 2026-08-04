@@ -22,18 +22,19 @@ require_once __DIR__ . '/InviteCode/Service.php';
 require_once __DIR__ . '/InviteCode/Action.php';
 require_once __DIR__ . '/OpenList/Service.php';
 require_once __DIR__ . '/OpenList/Action.php';
+require_once __DIR__ . '/TagSlugStatus.php';
 
 /**
  * Mirai 未来主题核心组件
  *
  * @package MiraiCore
  * @author 苏酷伊Sukuy
- * @version 1.1.5
+ * @version 1.1.6
  * @link https://www.sukuy.com
  */
 class MiraiCore_Plugin implements Typecho_Plugin_Interface
 {
-    const VERSION = '1.1.5';
+    const VERSION = '1.1.6';
     public static function activate()
     {
         Typecho_Plugin::factory('Widget_Upload')->uploadHandle = array('MiraiCore_Plugin', 'uploadHandle');
@@ -64,7 +65,7 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/InviteCode/manage-invite-codes.php', '邀请码管理', '管理注册邀请码', 'administrator');
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/Level/manage-level.php', '等级管理', '管理用户等级', 'administrator');
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/Links/manage-links.php', '友情链接', '管理友情链接', 'administrator');
-        Helper::addPanel($miraiMenuIndex, 'MiraiCore/Links/manage-categories.php', '链接分类', '管理链接分类', 'administrator');
+        Helper::addPanel($miraiMenuIndex, 'MiraiCore/Links/manage-categories.php', '链接分类', '管理链接分类', 'administrator', true);
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/OpenList/manage-openlist.php', 'OpenList资源', '管理OpenList资源配置', 'administrator');
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/Sitemap/manage-sitemap.php', '网站地图', '管理网站地图', 'administrator');
         Helper::addPanel($miraiMenuIndex, 'MiraiCore/Crawler/manage-crawler.php', '爬虫记录', '查看爬虫访问记录', 'administrator');
@@ -191,6 +192,7 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
 
     public static function renderFooter()
     {
+        MiraiCore_TagSlugStatus::render();
         require_once __DIR__ . '/VIP/Action.php';
         MiraiCore_VIP_Action::renderFooter();
         MiraiCore_Balance_Action::renderFooter();
