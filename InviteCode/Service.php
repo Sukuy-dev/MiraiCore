@@ -369,14 +369,16 @@ class MiraiCore_InviteCode_Service
     {
         $uid = (int)$uid;
         if ($uid <= 0) {
-            return ['vip_level' => 0, 'vip_exp_date' => ''];
+            return ['vip_level' => 0, 'vip_exp_date' => '', 'vip_type' => 'formal', 'vip_trial_used' => 0];
         }
 
         $db = \Typecho\Db::get();
-        $row = $db->fetchRow($db->select('vip_level', 'vip_exp_date')->from('table.users')->where('uid = ?', $uid)->limit(1));
+        $row = $db->fetchRow($db->select('vip_level', 'vip_exp_date', 'vip_type', 'vip_trial_used')->from('table.users')->where('uid = ?', $uid)->limit(1));
         return [
             'vip_level' => (int)($row['vip_level'] ?? 0),
             'vip_exp_date' => (string)($row['vip_exp_date'] ?? ''),
+            'vip_type' => ($row['vip_type'] ?? 'formal') === 'trial' ? 'trial' : 'formal',
+            'vip_trial_used' => (int)($row['vip_trial_used'] ?? 0)
         ];
     }
 
@@ -391,6 +393,8 @@ class MiraiCore_InviteCode_Service
         $db->query($db->update('table.users')->rows([
             'vip_level' => (int)($snapshot['vip_level'] ?? 0),
             'vip_exp_date' => (string)($snapshot['vip_exp_date'] ?? ''),
+            'vip_type' => ($snapshot['vip_type'] ?? 'formal') === 'trial' ? 'trial' : 'formal',
+            'vip_trial_used' => (int)($snapshot['vip_trial_used'] ?? 0)
         ])->where('uid = ?', $uid));
 
         if (function_exists('Mirai_vipClearCache')) {

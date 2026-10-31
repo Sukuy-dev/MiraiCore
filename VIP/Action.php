@@ -21,6 +21,13 @@ class MiraiCore_VIP_Action extends Typecho_Widget implements Widget_Interface_Do
                     $uid = intval($request->get('uid', 0));
                     $vipLevel = intval($request->get('vip_level', 0));
                     $vipExpDate = $request->get('vip_exp_date', '');
+                    $requestedVipType = (string)$request->get('vip_type', 'formal');
+                    $vipType = in_array($requestedVipType, ['normal', 'formal', 'trial'], true) ? $requestedVipType : 'formal';
+                    if ($vipType === 'normal' || $vipLevel <= 0) {
+                        $vipLevel = 0;
+                        $vipExpDate = '';
+                        $vipType = 'normal';
+                    }
 
                     if ($vipExpDate !== '' && $vipExpDate !== 'Permanent') {
                         if (!preg_match('/^\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?$/', $vipExpDate)) {
@@ -34,10 +41,15 @@ class MiraiCore_VIP_Action extends Typecho_Widget implements Widget_Interface_Do
 
                     if ($uid > 0) {
                         $db = Typecho_Db::get();
-                        $db->query($db->update('table.users')->rows([
+                        $vipUpdate = [
                             'vip_level' => $vipLevel,
-                            'vip_exp_date' => $vipExpDate
-                        ])->where('uid = ?', $uid));
+                            'vip_exp_date' => $vipExpDate,
+                            'vip_type' => $vipLevel > 0 ? $vipType : 'normal'
+                        ];
+                        if ($vipType === 'trial') {
+                            $vipUpdate['vip_trial_used'] = 1;
+                        }
+                        $db->query($db->update('table.users')->rows($vipUpdate)->where('uid = ?', $uid));
                         if (function_exists('Mirai_vipClearCache')) {
                             Mirai_vipClearCache($uid);
                         }
@@ -65,19 +77,21 @@ class MiraiCore_VIP_Action extends Typecho_Widget implements Widget_Interface_Do
                     }
 
                     $db = Typecho_Db::get();
-                    $user = $db->fetchRow($db->select('vip_level', 'vip_exp_date')->from('table.users')->where('uid = ?', $uid));
+                    $user = $db->fetchRow($db->select('vip_level', 'vip_exp_date', 'vip_type')->from('table.users')->where('uid = ?', $uid));
                     $vipLevel = intval($user['vip_level'] ?? 0);
                     $vipExpDate = htmlspecialchars((string)($user['vip_exp_date'] ?? ''), ENT_QUOTES);
+                    $isOrdinary = $vipLevel <= 0;
+                    $vipType = $isOrdinary ? 'normal' : (($user['vip_type'] ?? 'formal') === 'trial' ? 'trial' : 'formal');
 
                     $vipName1 = function_exists('Mirai_vipGetName') ? Mirai_vipGetName(1) : '一级会员';
                     $vipName2 = function_exists('Mirai_vipGetName') ? Mirai_vipGetName(2) : '二级会员';
                     $vipName3 = function_exists('Mirai_vipGetName') ? Mirai_vipGetName(3) : '三级会员';
 
                     $enabledLevels = function_exists('Mirai_vipGetEnabledLevels') ? Mirai_vipGetEnabledLevels() : [1, 2, 3];
-                    $optionsHtml = '<option value="0" \' + (' . $vipLevel . ' == 0 ? "selected" : "") + \'>普通用户</option>';
+                    $optionsHtml = '<option value="0" ' . ($isOrdinary ? 'selected' : '') . '>普通用户</option>';
                     $levelNames = [1 => $vipName1, 2 => $vipName2, 3 => $vipName3];
                     foreach ($enabledLevels as $lvl) {
-                        $optionsHtml .= '<option value="' . $lvl . '" \' + (' . $vipLevel . ' == ' . $lvl . ' ? "selected" : "") + \'>' . $levelNames[$lvl] . '</option>';
+                        $optionsHtml .= '<option value="' . $lvl . '" ' . ($vipLevel === (int)$lvl ? 'selected' : '') . '>' . htmlspecialchars($levelNames[$lvl], ENT_QUOTES, 'UTF-8') . '</option>';
                     }
 
                     $expDateValue = $vipExpDate;
@@ -109,11 +123,36 @@ class MiraiCore_VIP_Action extends Typecho_Widget implements Widget_Interface_Do
                             return type;
                         }
 
-                        var vipHtml = \'<ul class="typecho-option"><li><label class="typecho-label">会员等级</label><select name="vip_level">' . $optionsHtml . '</select><p class="description">设置用户的会员等级。</p></li></ul>\' +
-                                      \'<ul class="typecho-option"><li><label class="typecho-label">会员有效期</label><select name="vip_exp_select" id="vip_exp_select"><option value="">不设置</option><option value="Permanent" ' . ($isPermanent ? 'selected' : '') . '>永久有效</option><option value="1month">1个月</option><option value="3month">3个月</option><option value="6month">6个月</option><option value="1year">1年</option><option value="2year">2年</option><option value="custom" ' . ($isCustom ? 'selected' : '') . '>自定义日期</option></select><p class="description">选择会员有效期。</p></li></ul>\' +
+                        var vipHtml = \'<ul class="typecho-option"><li><label class="typecho-label">会员等级</label><select name="vip_level">' . $optionsHtml . '</select><p class="description">普通用户不享有会员权益；选择会员等级后才需要设置会员类型和有效期。</p></li></ul>\' +
+                                          \'<ul class="typecho-option" id="mirai_vip_type_wrap"><li><label class="typecho-label">会员类型</label><select name="vip_type"><option value="normal" ' . ($vipType === 'normal' ? 'selected' : '') . '>普通用户</option><option value="formal" ' . ($vipType === 'formal' ? 'selected' : '') . '>正式会员</option><option value="trial" ' . ($vipType === 'trial' ? 'selected' : '') . '>试用会员</option></select><p class="description">普通用户不享有会员权益；正式会员和试用会员仅用于区分用户中心显示及试用状态。</p></li></ul>\' +
+                                      \'<ul class="typecho-option" id="mirai_vip_exp_wrap"><li><label class="typecho-label">会员有效期</label><select name="vip_exp_select" id="vip_exp_select"><option value="">不设置</option><option value="Permanent" ' . ($isPermanent ? 'selected' : '') . '>永久有效</option><option value="1month">1个月</option><option value="3month">3个月</option><option value="6month">6个月</option><option value="1year">1年</option><option value="2year">2年</option><option value="custom" ' . ($isCustom ? 'selected' : '') . '>自定义日期</option></select><p class="description">会员有效期仅对正式会员或试用会员生效。</p></li></ul>\' +
                                       \'<ul class="typecho-option" id="vip_exp_custom_wrap" style="display:none;"><li><label class="typecho-label">自定义到期时间</label><input type="text" class="text w-100" name="vip_exp_date_custom" value="' . $expDateValue . '" placeholder="例如：2099-12-31 23:59:59"><p class="description">设置具体的到期时间。</p></li></ul>\' +
                                       \'<input type="hidden" name="vip_exp_date" id="vip_exp_date_hidden" value="' . $expDateValue . '">\';
                         $("form[action*=users-edit]").find(".typecho-option").last().before(vipHtml);
+
+                        var $vipLevel = $("form[action*=users-edit] select[name=vip_level]");
+                        var $vipType = $("form[action*=users-edit] select[name=vip_type]");
+                        function syncVipState() {
+                            var ordinary = $vipLevel.val() === "0";
+                            $("#mirai_vip_exp_wrap").toggle(!ordinary);
+                            if (ordinary) {
+                                $vipType.val("normal");
+                                $("#vip_exp_select").val("");
+                                $("#vip_exp_date_hidden").val("");
+                                $("#vip_exp_custom_wrap").hide();
+                            }
+                        }
+                        $vipLevel.on("change", syncVipState);
+                        $vipType.on("change", function() {
+                            if ($(this).val() === "normal") {
+                                $vipLevel.val("0");
+                            } else if ($vipLevel.val() === "0") {
+                                var firstLevel = $vipLevel.find("option[value!=0]").first().val();
+                                if (firstLevel) $vipLevel.val(firstLevel);
+                            }
+                            syncVipState();
+                        });
+                        syncVipState();
 
                         $("#vip_exp_select").on("change", function() {
                             var val = $(this).val();
@@ -211,7 +250,8 @@ class MiraiCore_VIP_Action extends Typecho_Widget implements Widget_Interface_Do
                                             var expText = v.exp === "Permanent" ? "永久" : (v.exp ? v.exp : "未知");
                                             var levelNames = ["", "一级会员", "二级会员", "三级会员"];
                                             var vName = v.name || levelNames[v.level] || ("会员 " + v.level);
-                                            $td.html("<span class=\'mirai-vip-name\'>" + vName + "</span><br><span class=\'mirai-vip-exp\'>" + expText + "</span>");
+                                            var typeText = v.type === "trial" ? "试用会员" : "正式会员";
+                                            $td.html("<span class=\'mirai-vip-name\'>" + typeText + " · " + vName + "</span><br><span class=\'mirai-vip-exp\'>" + expText + "</span>");
                                         } else {
                                             $td.text("普通用户");
                                         }
