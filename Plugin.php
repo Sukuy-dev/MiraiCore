@@ -29,12 +29,12 @@ require_once __DIR__ . '/TagSlugStatus.php';
  *
  * @package MiraiCore
  * @author 苏酷伊Sukuy
- * @version 1.1.7
+ * @version 1.1.8
  * @link https://www.sukuy.com
  */
 class MiraiCore_Plugin implements Typecho_Plugin_Interface
 {
-    const VERSION = '1.1.7';
+    const VERSION = '1.1.8';
     public static function activate()
     {
         Typecho_Plugin::factory('Widget_Upload')->uploadHandle = array('MiraiCore_Plugin', 'uploadHandle');

@@ -304,7 +304,7 @@ class MiraiCore_Sitemap_Service
             )->num);
             $pages = (int)ceil($postCount / $pageSize);
             for ($i = 2; $i <= $pages; $i++) {
-                $home[] = self::entry(Typecho_Common::url('page/' . $i . '/', $options->index), $now, $config['home_changefreq'], $config['home_priority']);
+                $home[] = self::entry(self::routeUrl('index_page', ['page' => $i], $options, 'page/' . $i . '/'), $now, $config['home_changefreq'], $config['home_priority']);
             }
         }
         $groups['home'] = $home;
@@ -319,12 +319,14 @@ class MiraiCore_Sitemap_Service
                     ->order('created', Typecho_Db::SORT_DESC)
             );
             $list = [];
+            $categoryMap = self::getPostPrimaryCategories($db, array_column($posts, 'cid'));
             foreach ($posts as $post) {
                 $cid = intval($post['cid']);
                 if (in_array($cid, $excludeCids, true)) {
                     continue;
                 }
-                $loc = self::buildPostUrl($post, $options);
+                $row = self::annotateContentRow($post, isset($categoryMap[$cid]) ? $categoryMap[$cid] : null);
+                $loc = self::buildPostUrl($row, $options);
                 if ($loc === '') {
                     continue;
                 }
@@ -348,7 +350,8 @@ class MiraiCore_Sitemap_Service
                 if (in_array($cid, $excludeCids, true)) {
                     continue;
                 }
-                $loc = self::buildPageUrl($page, $options);
+                $row = self::annotateContentRow($page, null);
+                $loc = self::buildPageUrl($row, $options);
                 if ($loc === '') {
                     continue;
                 }
@@ -359,12 +362,15 @@ class MiraiCore_Sitemap_Service
 
         if (self::boolValue($config['include_categories'])) {
             $rows = $db->fetchAll($db->select('mid', 'slug', 'name', 'count')->from('table.metas')->where('type = ?', 'category')->where('count > ?', 0)->order('mid', Typecho_Db::SORT_ASC));
+            $tree = self::getCategoryTree($db);
             $list = [];
             foreach ($rows as $row) {
                 $mid = intval($row['mid']);
                 if (in_array($mid, $excludeMids, true)) {
                     continue;
                 }
+                $row['slug'] = urlencode((string)$row['slug']);
+                $row['directory'] = implode('/', array_map('urlencode', self::getCategoryDirectory($tree, $mid)));
                 $loc = self::buildCategoryUrl($row, $options);
                 if ($loc === '') {
                     continue;
@@ -374,7 +380,7 @@ class MiraiCore_Sitemap_Service
                     $pageSize = max(1, intval($options->pageSize));
                     $pages = (int)ceil(intval($row['count']) / $pageSize);
                     for ($i = 2; $i <= $pages; $i++) {
-                        $list[] = self::entry(Typecho_Common::url('category/' . rawurlencode((string)$row['slug']) . '/page/' . $i . '/', $options->index), $now, $config['category_changefreq'], $config['category_priority']);
+                        $list[] = self::entry(self::routeUrl('category_page', ['slug' => $row['slug'], 'page' => $i], $options, 'category/' . $row['slug'] . '/page/' . $i . '/'), $now, $config['category_changefreq'], $config['category_priority']);
                     }
                 }
             }
@@ -389,6 +395,7 @@ class MiraiCore_Sitemap_Service
                 if (in_array($mid, $excludeMids, true)) {
                     continue;
                 }
+                $row['slug'] = urlencode((string)$row['slug']);
                 $loc = self::buildTagUrl($row, $options);
                 if ($loc === '') {
                     continue;
@@ -398,7 +405,7 @@ class MiraiCore_Sitemap_Service
                     $pageSize = max(1, intval($options->pageSize));
                     $pages = (int)ceil(intval($row['count']) / $pageSize);
                     for ($i = 2; $i <= $pages; $i++) {
-                        $list[] = self::entry(Typecho_Common::url('tag/' . rawurlencode((string)$row['slug']) . '/page/' . $i . '/', $options->index), $now, $config['tag_changefreq'], $config['tag_priority']);
+                        $list[] = self::entry(self::routeUrl('tag_page', ['slug' => $row['slug'], 'page' => $i], $options, 'tag/' . $row['slug'] . '/page/' . $i . '/'), $now, $config['tag_changefreq'], $config['tag_priority']);
                     }
                 }
             }
@@ -546,10 +553,133 @@ class MiraiCore_Sitemap_Service
         }
     }
 
+    private static function routeUrl($routeName, array $params, $options, $fallbackPath)
+    {
+        try {
+            if (Typecho_Router::get($routeName) !== null) {
+                $url = Typecho_Router::url($routeName, $params, $options->index);
+                if ((string)$url !== '#' && strpos((string)$url, '{') === false) {
+                    return (string)$url;
+                }
+            }
+        } catch (Throwable $e) {
+
+        }
+        return Typecho_Common::url($fallbackPath, $options->index);
+    }
+
+    private static function annotateContentRow($row, $primaryCategory)
+    {
+        $row['slug'] = urlencode((string)$row['slug']);
+        $row['category'] = $primaryCategory ? urlencode((string)$primaryCategory['slug']) : '';
+        $row['directory'] = $primaryCategory ? implode('/', array_map('urlencode', (array)$primaryCategory['directory'])) : '';
+        $date = new Typecho_Date(intval($row['created']));
+        $row['year'] = $date->year;
+        $row['month'] = $date->month;
+        $row['day'] = $date->day;
+        return $row;
+    }
+
+    private static function getPostPrimaryCategories($db, array $cids)
+    {
+        $result = [];
+        $cids = array_values(array_filter(array_map('intval', $cids), function ($cid) {
+            return $cid > 0;
+        }));
+        if (empty($cids)) {
+            return $result;
+        }
+
+        [$tree, $orders] = self::getCategoryTree($db);
+
+        $rels = $db->fetchAll(
+            $db->select('table.relationships.cid', 'table.relationships.mid')
+                ->from('table.relationships')
+                ->join('table.metas', 'table.relationships.mid = table.metas.mid')
+                ->where('table.metas.type = ?', 'category')
+                ->where('table.relationships.cid IN ?', $cids)
+        );
+        $byCid = [];
+        foreach ($rels as $rel) {
+            $byCid[intval($rel['cid'])][] = intval($rel['mid']);
+        }
+
+        foreach ($byCid as $cid => $mids) {
+            usort($mids, function ($a, $b) use ($orders) {
+                $pa = array_search($a, $orders);
+                $pb = array_search($b, $orders);
+                if ($pa === false) {
+                    $pa = PHP_INT_MAX;
+                }
+                if ($pb === false) {
+                    $pb = PHP_INT_MAX;
+                }
+                return $pa <=> $pb;
+            });
+            $primary = isset($tree[$mids[0]]) ? $tree[$mids[0]] : null;
+            if (!$primary) {
+                continue;
+            }
+            $result[$cid] = [
+                'slug' => (string)$primary['slug'],
+                'directory' => self::getCategoryDirectory($tree, intval($primary['mid'])),
+            ];
+        }
+        return $result;
+    }
+
+    private static function getCategoryTree($db)
+    {
+        $rows = $db->fetchAll(
+            $db->select('mid', 'slug', 'parent', '`order`')->from('table.metas')->where('type = ?', 'category')
+        );
+        usort($rows, function ($a, $b) {
+            return $a['order'] <=> $b['order'];
+        });
+        $map = [];
+        foreach ($rows as $row) {
+            $map[intval($row['mid'])] = $row;
+        }
+        $treeRows = [];
+        $top = [];
+        foreach ($map as $id => $row) {
+            $parent = intval($row['parent']);
+            if (0 != $parent && isset($map[$parent])) {
+                $treeRows[$parent][] = $id;
+            } else {
+                $top[] = $id;
+            }
+        }
+        $orders = [];
+        $walk = function (array $nodes) use (&$walk, &$orders, $treeRows) {
+            foreach ($nodes as $id) {
+                $orders[] = $id;
+                if (!empty($treeRows[$id])) {
+                    $walk($treeRows[$id]);
+                }
+            }
+        };
+        $walk($top);
+        return [$map, $orders];
+    }
+
+    private static function getCategoryDirectory($tree, $mid)
+    {
+        $slugs = [];
+        $current = isset($tree[$mid]) ? $tree[$mid] : null;
+        $guard = 0;
+        while ($current && $guard++ < 50) {
+            array_unshift($slugs, (string)$current['slug']);
+            $parent = intval($current['parent']);
+            $current = (0 != $parent && isset($tree[$parent])) ? $tree[$parent] : null;
+        }
+        return $slugs;
+    }
+
     private static function normalizeUrl($url, $siteUrl)
     {
         $url = trim((string)$url);
-        if ($url === '') {
+        if ($url === '' || $url === '#' || strpos($url, '{') !== false) {
             return '';
         }
         if (preg_match('#^https?://#i', $url)) {
