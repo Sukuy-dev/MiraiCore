@@ -15,6 +15,12 @@ class MiraiCore_Crawler_Service
         '360Spider' => ['name' => '360Spider (360搜索)', 'color' => '#5cb85c'],
         'Bytespider' => ['name' => 'Bytespider (字节跳动)', 'color' => '#ff6b35'],
         'GPTBot' => ['name' => 'GPTBot (OpenAI)', 'color' => '#10a37f'],
+        'ChatGPT-User' => ['name' => 'ChatGPT-User (OpenAI)', 'color' => '#10a37f'],
+        'OAI-SearchBot' => ['name' => 'OAI-SearchBot (OpenAI)', 'color' => '#10a37f'],
+        'Perplexity' => ['name' => 'PerplexityBot (Perplexity)', 'color' => '#20808d'],
+        'Claude-User' => ['name' => 'Claude-User (Anthropic)', 'color' => '#d97706'],
+        'claude-web' => ['name' => 'claude-web (Anthropic)', 'color' => '#d97706'],
+        'Meta-ExternalAgent' => ['name' => 'Meta-ExternalAgent (Meta)', 'color' => '#0668e1'],
         'YisouSpider' => ['name' => 'YisouSpider (神马搜索)', 'color' => '#e74c3c'],
         'Sogou' => ['name' => 'Sogou (搜狗)', 'color' => '#ff9500'],
         'Twitterbot' => ['name' => 'Twitterbot', 'color' => '#1da1f2'],
@@ -22,7 +28,7 @@ class MiraiCore_Crawler_Service
         'Discordbot' => ['name' => 'Discordbot', 'color' => '#5865f2'],
         'DuckDuckBot' => ['name' => 'DuckDuckBot', 'color' => '#de5833'],
         'DeepSeekBot' => ['name' => 'DeepSeekBot', 'color' => '#6f42c1'],
-        'ClaudeBot' => ['name' => 'ClaudeBot', 'color' => '#d97706'],
+        'ClaudeBot' => ['name' => 'ClaudeBot (Anthropic)', 'color' => '#d97706'],
         'Applebot' => ['name' => 'Applebot', 'color' => '#000000'],
         'Amazonbot' => ['name' => 'Amazonbot', 'color' => '#ff9900'],
     ];
@@ -336,7 +342,8 @@ class MiraiCore_Crawler_Service
         if (strlen($value) > $maxLength) {
             $value = substr($value, 0, $maxLength);
         }
-        return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // 不做 HTML 转义：入库保持原始值，输出层（manage-crawler.php）统一 htmlspecialchars
+        return $value;
     }
 
     private static function sanitizeUrl(string $url): string
