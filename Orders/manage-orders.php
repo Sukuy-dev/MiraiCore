@@ -154,7 +154,7 @@ if (!Mirai_payDbCheck()) {
                                 <option value="paid" <?php echo $status === 'paid' ? 'selected' : ''; ?>><?php _e('已支付'); ?></option>
                                 <option value="closed" <?php echo $status === 'closed' ? 'selected' : ''; ?>><?php _e('已关闭'); ?></option>
                             </select>
-                            <input type="text" name="keyword" value="<?php echo htmlspecialchars($keyword); ?>" placeholder="<?php _e('订单号或流水号'); ?>">
+                            <input type="text" name="keyword" value="<?php echo htmlspecialchars($keyword); ?>" placeholder="<?php _e('订单号/流水号/用户名/用户ID/昵称'); ?>">
                             <button type="submit" class="btn btn-s"><?php _e('筛选'); ?></button>
                         </div>
                     </form>

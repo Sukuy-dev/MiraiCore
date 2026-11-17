@@ -32,15 +32,18 @@ class MiraiCore_Crawler_Hook
         }
 
         $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+        // 解码后再检查：防止 /credentials/aws%2ejson 这类 URL 编码绕过静态资源排除
+        $decodedUri = rawurldecode($requestUri);
         foreach (self::EXCLUDE_PATHS as $path) {
-            if (strpos($requestUri, $path) !== false) {
+            if (strpos($decodedUri, $path) !== false) {
                 return;
             }
         }
 
         // 额外检查：URL是否包含文件扩展名（可能是直接文件请求）
-        $pathInfo = parse_url($requestUri, PHP_URL_PATH) ?? '';
-        if (preg_match('/\.[a-zA-Z0-9]{2,6}$/', $pathInfo)) {
+        // 放行 .html/.htm——Typecho 文章固定链接（/{category}/{slug}.html）以此结尾，属于正常页面
+        $pathInfo = parse_url($decodedUri, PHP_URL_PATH) ?? '';
+        if (preg_match('/\.(?!html?$)[a-zA-Z0-9]{2,6}$/i', $pathInfo)) {
             return;
         }
 
@@ -93,18 +96,34 @@ class MiraiCore_Crawler_Hook
             $currentUrl .= $requestUri;
         }
 
-        $ipAddress = '';
-        if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $ipAddress = $_SERVER['HTTP_X_FORWARDED_FOR'];
-        } elseif (isset($_SERVER['HTTP_X_REAL_IP'])) {
-            $ipAddress = $_SERVER['HTTP_X_REAL_IP'];
-        } elseif (isset($_SERVER['REMOTE_ADDR'])) {
-            $ipAddress = $_SERVER['REMOTE_ADDR'];
+        $candidates = [];
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            foreach (explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']) as $ip) {
+                $candidates[] = trim($ip);
+            }
+        }
+        if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
+            $candidates[] = trim($_SERVER['HTTP_X_REAL_IP']);
+        }
+        if (!empty($_SERVER['REMOTE_ADDR'])) {
+            $candidates[] = trim($_SERVER['REMOTE_ADDR']);
         }
 
-        if (strpos($ipAddress, ',') !== false) {
-            $ips = explode(',', $ipAddress);
-            $ipAddress = trim($ips[0]);
+        $ipAddress = '';
+        foreach ($candidates as $ip) {
+            if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                $ipAddress = $ip;
+                break;
+            }
+        }
+
+        if ($ipAddress === '') {
+            foreach ($candidates as $ip) {
+                if ($ip !== '') {
+                    $ipAddress = $ip;
+                    break;
+                }
+            }
         }
 
         $crawlerInfo = [
