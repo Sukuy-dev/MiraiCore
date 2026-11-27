@@ -39,6 +39,10 @@ class MiraiCore_VIP_Action extends Typecho_Widget implements Widget_Interface_Do
                         }
                     }
 
+                    if ($vipLevel > 0 && $vipExpDate === '') {
+                        $vipExpDate = 'Permanent';
+                    }
+
                     if ($uid > 0) {
                         $db = Typecho_Db::get();
                         $vipUpdate = [
@@ -79,7 +83,15 @@ class MiraiCore_VIP_Action extends Typecho_Widget implements Widget_Interface_Do
                     $db = Typecho_Db::get();
                     $user = $db->fetchRow($db->select('vip_level', 'vip_exp_date', 'vip_type')->from('table.users')->where('uid = ?', $uid));
                     $vipLevel = intval($user['vip_level'] ?? 0);
-                    $vipExpDate = htmlspecialchars((string)($user['vip_exp_date'] ?? ''), ENT_QUOTES);
+                    $vipExpDateRaw = (string)($user['vip_exp_date'] ?? '');
+                    $expTs = ($vipExpDateRaw !== '' && $vipExpDateRaw !== 'Permanent') ? strtotime($vipExpDateRaw) : false;
+                    $isExpiredVip = $vipLevel > 0 && $vipExpDateRaw !== 'Permanent' && (!$expTs || $expTs <= time());
+                    
+                    if ($isExpiredVip && function_exists('Mirai_vipCheckExpired')) {
+                        Mirai_vipCheckExpired($uid);
+                        $vipLevel = 0;
+                    }
+                    $vipExpDate = htmlspecialchars($vipExpDateRaw, ENT_QUOTES);
                     $isOrdinary = $vipLevel <= 0;
                     $vipType = $isOrdinary ? 'normal' : (($user['vip_type'] ?? 'formal') === 'trial' ? 'trial' : 'formal');
 
@@ -123,7 +135,7 @@ class MiraiCore_VIP_Action extends Typecho_Widget implements Widget_Interface_Do
                             return type;
                         }
 
-                        var vipHtml = \'<ul class="typecho-option"><li><label class="typecho-label">会员等级</label><select name="vip_level">' . $optionsHtml . '</select><p class="description">普通用户不享有会员权益；选择会员等级后才需要设置会员类型和有效期。</p></li></ul>\' +
+                        var vipHtml = \'<ul class="typecho-option"><li><label class="typecho-label">会员等级</label><select name="vip_level">' . $optionsHtml . '</select><p class="description">普通用户不享有会员权益；选择会员等级后才需要设置会员类型和有效期。' . ($isExpiredVip ? '<span style="color:#c00">当前会员已过期，下方显示的到期时间仅为历史记录。</span>' : '') . '</p></li></ul>\' +
                                           \'<ul class="typecho-option" id="mirai_vip_type_wrap"><li><label class="typecho-label">会员类型</label><select name="vip_type"><option value="normal" ' . ($vipType === 'normal' ? 'selected' : '') . '>普通用户</option><option value="formal" ' . ($vipType === 'formal' ? 'selected' : '') . '>正式会员</option><option value="trial" ' . ($vipType === 'trial' ? 'selected' : '') . '>试用会员</option></select><p class="description">普通用户不享有会员权益；正式会员和试用会员仅用于区分用户中心显示及试用状态。</p></li></ul>\' +
                                       \'<ul class="typecho-option" id="mirai_vip_exp_wrap"><li><label class="typecho-label">会员有效期</label><select name="vip_exp_select" id="vip_exp_select"><option value="">不设置</option><option value="Permanent" ' . ($isPermanent ? 'selected' : '') . '>永久有效</option><option value="1month">1个月</option><option value="3month">3个月</option><option value="6month">6个月</option><option value="1year">1年</option><option value="2year">2年</option><option value="custom" ' . ($isCustom ? 'selected' : '') . '>自定义日期</option></select><p class="description">会员有效期仅对正式会员或试用会员生效。</p></li></ul>\' +
                                       \'<ul class="typecho-option" id="vip_exp_custom_wrap" style="display:none;"><li><label class="typecho-label">自定义到期时间</label><input type="text" class="text w-100" name="vip_exp_date_custom" value="' . $expDateValue . '" placeholder="例如：2099-12-31 23:59:59"><p class="description">设置具体的到期时间。</p></li></ul>\' +
@@ -248,6 +260,9 @@ class MiraiCore_VIP_Action extends Typecho_Widget implements Widget_Interface_Do
                                         
                                         if (v && v.level > 0) {
                                             var expText = v.exp === "Permanent" ? "永久" : (v.exp ? v.exp : "未知");
+                                            if (v.expired) {
+                                                expText += "（已过期）";
+                                            }
                                             var levelNames = ["", "一级会员", "二级会员", "三级会员"];
                                             var vName = v.name || levelNames[v.level] || ("会员 " + v.level);
                                             var typeText = v.type === "trial" ? "试用会员" : "正式会员";

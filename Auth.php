@@ -8,6 +8,41 @@ class MiraiCore_Auth
         MiraiCore_Crawler_Hook::handle($archive);
     }
 
+    public static function blockNativeRegister()
+    {
+        $script = isset($_SERVER['SCRIPT_NAME']) ? (string)$_SERVER['SCRIPT_NAME'] : '';
+        $adminPath = '/' . trim((string)__TYPECHO_ADMIN_DIR__, '/');
+        $isRegisterPage = $script !== '' && stripos($script, $adminPath . '/register.php') !== false;
+
+        $requestUri = isset($_SERVER['REQUEST_URI']) ? (string)$_SERVER['REQUEST_URI'] : '';
+        $path = parse_url($requestUri, PHP_URL_PATH);
+        $isRegisterAction = is_string($path)
+            && preg_match('#/(index\.php/)?action/register/?$#', '/' . trim($path, '/')) === 1;
+
+        if (!$isRegisterPage && !$isRegisterAction) {
+            return;
+        }
+
+        $target = '/';
+        try {
+            $options = Typecho_Widget::widget('Widget_Options');
+            $user = Typecho_Widget::widget('Widget_User');
+            $target = rtrim((string)$options->siteUrl, '/') . '/';
+            if ($options->allowRegister && !$user->hasLogin()) {
+                $themeOptions = isset($options->theme) ? $options->{$options->theme} : null;
+                $userCenterEnabled = !isset($themeOptions->enableUserCenter) || $themeOptions->enableUserCenter === '1';
+                $frontendLoginEnabled = !isset($themeOptions->enableFrontendLogin) || $themeOptions->enableFrontendLogin === '1';
+                if ($userCenterEnabled && $frontendLoginEnabled) {
+                    $target .= '#register';
+                }
+            }
+        } catch (Exception $e) {
+            $target = '/';
+        }
+        header('Location: ' . $target, true, 302);
+        exit;
+    }
+
     public static function interceptAuth()
     {
         if (MiraiCore_Sitemap_Service::maybeHandleRequest()) {

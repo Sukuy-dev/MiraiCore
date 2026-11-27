@@ -23,20 +23,25 @@ require_once __DIR__ . '/InviteCode/Action.php';
 require_once __DIR__ . '/OpenList/Service.php';
 require_once __DIR__ . '/OpenList/Action.php';
 require_once __DIR__ . '/TagSlugStatus.php';
+require_once __DIR__ . '/Helper/UserSearch.php';
+require_once __DIR__ . '/Ban/Service.php';
+require_once __DIR__ . '/Ban/Action.php';
 
 /**
  * Mirai 未来主题核心组件
  *
  * @package MiraiCore
  * @author 苏酷伊Sukuy
- * @version 1.1.9
+ * @version 1.2.0
  * @link https://www.sukuy.com
  */
 class MiraiCore_Plugin implements Typecho_Plugin_Interface
 {
-    const VERSION = '1.1.9';
+    const VERSION = '1.2.0';
     public static function activate()
     {
+        MiraiCore_Ban_Service::ensureSchema();
+
         Typecho_Plugin::factory('Widget_Upload')->uploadHandle = array('MiraiCore_Plugin', 'uploadHandle');
         Typecho_Plugin::factory('Widget_Upload')->modifyHandle = array('MiraiCore_Plugin', 'modifyHandle');
         Typecho_Plugin::factory('Widget_Upload')->deleteHandle = array('MiraiCore_Plugin', 'deleteHandle');
@@ -52,8 +57,11 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
         Typecho_Plugin::factory('index.php')->begin = array('MiraiCore_Plugin', 'interceptIndexBegin');
         Typecho_Plugin::factory('Widget_Archive')->footer = array('MiraiCore_Plugin', 'onArchiveFooter');
         Typecho_Plugin::factory('Widget_Logout')->action = array('MiraiCore_Plugin', 'handleLogout');
+        Typecho_Plugin::factory('Widget_User')->loginSucceed = array('MiraiCore_Ban_Service', 'onLoginSucceed');
+        Typecho_Plugin::factory('Widget_User')->simpleLoginSucceed = array('MiraiCore_Ban_Service', 'onSimpleLoginSucceed');
 
         Typecho_Plugin::factory('admin/header.php')->header = array('MiraiCore_Plugin', 'renderHeader');
+        Typecho_Plugin::factory('admin/footer.php')->begin = array('MiraiCore_Ban_Service', 'renderManageUsersActions');
         Typecho_Plugin::factory('admin/footer.php')->end = array('MiraiCore_Plugin', 'renderFooter');
         Typecho_Plugin::factory('admin/common.php')->begin = array('MiraiCore_Plugin', 'handleAdminBegin');
 
@@ -80,7 +88,8 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
         Helper::addAction('mirai-update', 'MiraiCore_Update_Action');
         Helper::addAction('mirai-invite-codes', 'MiraiCore_InviteCode_Action');
         Helper::addAction('mirai-openlist', 'MiraiCore_OpenList_Action');
-        
+        Helper::addAction('mirai-ban', 'MiraiCore_Ban_Action');
+
         self::loadThemeFile('migration.php', 'common/mysql');
         if (function_exists('Mirai_checkDatabase')) {
             Mirai_checkDatabase();
@@ -114,6 +123,7 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
         Helper::removeAction('mirai-update');
         Helper::removeAction('mirai-invite-codes');
         Helper::removeAction('mirai-openlist');
+        Helper::removeAction('mirai-ban');
     }
     
     public static function config(Typecho_Widget_Helper_Form $form){}
@@ -143,7 +153,9 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
 
     public static function interceptIndexBegin()
     {
+        MiraiCore_Ban_Service::guard();
         require_once __DIR__ . '/VIP/Action.php';
+        MiraiCore_Auth::blockNativeRegister();
         MiraiCore_VIP_Action::interceptIndexBegin();
         MiraiCore_Balance_Action::interceptIndexBegin();
 
@@ -181,6 +193,9 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
 
     public static function handleAdminBegin()
     {
+        MiraiCore_Ban_Service::guard();
+        MiraiCore_UserSearch::register();
+        MiraiCore_Auth::blockNativeRegister();
         MiraiCore_Auth::interceptAdminAccess();
         if (self::isActionRequest()) {
             return;
@@ -345,10 +360,5 @@ class MiraiCore_Plugin implements Typecho_Plugin_Interface
         if (function_exists('Mirai_onFinishPublish')) {
             Mirai_onFinishPublish($contents, $widget);
         }
-    }
-
-    public static function buildAbout()
-    {
-        return MiraiCore_About::build();
     }
 }
